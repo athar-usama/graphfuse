@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="230" viewBox="0 0 860 230" font-family="Consolas, Menlo, monospace">
+<rect width="860" height="230" fill="#12141a"/>
+<text x="20" y="20" font-size="14" fill="#c9ced9">Three FX nodes, one custom op</text>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4b5563"/></marker></defs>
+<rect x="30" y="30" width="220" height="46" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/><text x="140.0" y="57.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">x + bias</text>
+<path d="M250,53.0 C290,53.0 570,119.0 610,119.0" fill="none" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="30" y="96" width="220" height="46" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/><text x="140.0" y="123.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">gelu(_, approximate="tanh")</text>
+<path d="M250,119.0 C290,119.0 570,119.0 610,119.0" fill="none" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="30" y="162" width="220" height="46" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/><text x="140.0" y="189.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">_ + residual</text>
+<path d="M250,185.0 C290,185.0 570,119.0 610,119.0" fill="none" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="610" y="96" width="250" height="46" rx="8" fill="#1a1d27" stroke="#059669" stroke-width="1.8"/><text x="735.0" y="123.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">torch.ops.graphfuse. fused_bias_gelu_residual</text>
+</svg>
