@@ -87,7 +87,7 @@ The GELU tanh-approximation constants in [`kernels/_fused_bias_gelu_residual.py`
 
 It also only matches `approximate="tanh"` GELU specifically, not the default erf-based exact GELU: a `nn.Linear(bias=True)`'s bias fused into the matmul itself, or a hand-written GELU instead of `F.gelu`, would not appear in this exact shape, and the pass correctly leaves both alone rather than partially matching. [`test_pattern.py`](tests/test_pattern.py) builds these graphs by hand, with real shapes attached to the right metadata key, so the matcher's logic is verified independently of torch.compile, Triton, or a GPU: all five tests in that file run on CPU.
 
-## Setting up the WSL2 toolchain
+## Reusing the WSL2 setup from sparseflash
 
 Same requirement as every Triton project in this portfolio: Triton's wheels are Linux-only, so this runs inside WSL2, not native Windows Python, against the same repository path on the Windows filesystem.
 
@@ -102,7 +102,7 @@ pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu1
 pip install -e ".[dev]"
 ```
 
-## Dropping it into a model
+## Using the backend in your own model
 
 ```python
 import torch
@@ -127,11 +127,11 @@ graphfuse diagram
 graphfuse benchmark
 ```
 
-## What this deliberately doesn't do
+## Where the pattern matcher stops, on purpose
 
 The pattern matcher runs on the raw Dynamo graph, so it only catches the pattern in the exact Python-level shape shown above: a separate bias parameter added after a matmul, not one folded into `nn.Linear(bias=True)`, and `F.gelu(..., approximate="tanh")` specifically, not the exact erf-based default or a hand-written equivalent. Both are real, disclosed scope limits, not bugs; extending the matcher to cover a folded-bias `nn.Linear` would mean matching against the post-AOTAutograd ATen graph instead, a genuinely different and more involved pass. The custom-op boundary also opts this project's region out of Inductor's cross-region memory planning, measured directly above as graphfuse's peak memory tracking eager's rather than Inductor's.
 
-## How the project is organized
+## Where everything lives
 
 ```
 src/graphfuse/
@@ -155,7 +155,7 @@ tests/
   test_backend_gpu.py                  GPU-only: the real end-to-end torch.compile path, output and gradients
 ```
 
-## What actually proves this is correct
+## Two correctness tiers, not one
 
 Two tiers, not one. [`test_reference.py`](tests/test_reference.py) runs `torch.autograd.gradcheck` in float64 against the plain-PyTorch reference, proving the math is right independent of Triton entirely. [`test_op_gpu.py`](tests/test_op_gpu.py) then compares the real kernel's forward and backward directly against that already-gradchecked reference, fp32, no finite differences, across four shapes including a single row and a single-element hidden dimension. Neither tier alone would have caught the backward-tracing bug above: that one only shows up when the compiled path is actually exercised, which is what [`test_backend_gpu.py`](tests/test_backend_gpu.py) is for, checking both numerical output and every parameter's gradient against a real eager run of the same weights.
 
@@ -164,6 +164,6 @@ pytest -v        # CPU-only tests always run; GPU tests skip themselves without 
 ruff check .
 ```
 
-## MIT license
+## License
 
 See [LICENSE](LICENSE).
