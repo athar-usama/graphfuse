@@ -1,4 +1,46 @@
 {
-  "inductor": 2,
-  "graphfuse": 2
+  "inductor": [
+    {
+      "hidden": 256,
+      "count": 4
+    },
+    {
+      "hidden": 512,
+      "count": 4
+    },
+    {
+      "hidden": 1024,
+      "count": 4
+    },
+    {
+      "hidden": 2048,
+      "count": 2
+    },
+    {
+      "hidden": 4096,
+      "count": 2
+    }
+  ],
+  "graphfuse": [
+    {
+      "hidden": 256,
+      "count": 2
+    },
+    {
+      "hidden": 512,
+      "count": 2
+    },
+    {
+      "hidden": 1024,
+      "count": 2
+    },
+    {
+      "hidden": 2048,
+      "count": 2
+    },
+    {
+      "hidden": 4096,
+      "count": 2
+    }
+  ]
 }

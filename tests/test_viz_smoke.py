@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 from graphfuse.viz import (  # noqa: E402
-    plot_kernel_launch_counts,
+    plot_kernel_launch_sweep,
     plot_latency_delta,
     plot_memory_delta,
     render_fx_rewrite_diagram_svg,
@@ -40,8 +40,12 @@ def test_memory_and_latency_delta_charts_render_without_crashing(tmp_path):
     assert (tmp_path / "lat.png").exists()
 
 
-def test_kernel_launch_counts_renders_without_crashing(tmp_path):
-    plot_kernel_launch_counts({"inductor": 4, "graphfuse": 2}, tmp_path / "counts.png")
+def test_kernel_launch_sweep_renders_without_crashing(tmp_path):
+    launch_counts = {
+        "inductor": [{"hidden": 256, "count": 2}, {"hidden": 512, "count": 2}],
+        "graphfuse": [{"hidden": 256, "count": 3}, {"hidden": 512, "count": 2}],
+    }
+    plot_kernel_launch_sweep(launch_counts, tmp_path / "counts.png")
     assert (tmp_path / "counts.png").exists()
 
 

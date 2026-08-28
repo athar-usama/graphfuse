@@ -1,7 +1,7 @@
 """The actual measurements behind the README: latency and memory across
 hidden size for eager vs. stock ``torch.compile`` (Inductor) vs.
-``torch.compile(backend=graphfuse_backend)``, plus a kernel-launch-count
-comparison for one representative config. Every number here is real,
+``torch.compile(backend=graphfuse_backend)``, plus a Triton kernel-launch
+count across that same hidden-size sweep. Every number here is real,
 measured on this machine; nothing is estimated.
 """
 
@@ -14,7 +14,7 @@ import torch
 
 from ..backend import graphfuse_backend
 from ..model import FusibleStack
-from ..viz import plot_kernel_launch_counts, plot_latency_delta, plot_memory_delta, write_results_json
+from ..viz import plot_kernel_launch_sweep, plot_latency_delta, plot_memory_delta, write_results_json
 
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 ASSETS_DIR = ROOT / "assets"
@@ -24,8 +24,6 @@ DEPTH = 6
 HIDDEN_SIZES = [256, 512, 1024, 2048, 4096]
 WARMUP = 8
 ITERS = 20
-
-LAUNCH_COUNT_HIDDEN = 2048
 
 
 def _build(impl: str, hidden: int, depth: int):
@@ -136,15 +134,22 @@ def _count_triton_launches(model, x) -> int:
     return count
 
 
-def run_kernel_launch_comparison() -> dict:
-    x = torch.randn(ROWS, LAUNCH_COUNT_HIDDEN, device="cuda")
-    counts = {}
-    for impl in ("inductor", "graphfuse"):
-        torch._dynamo.reset()
-        model = _build(impl, LAUNCH_COUNT_HIDDEN, depth=1)
-        counts[impl] = _count_triton_launches(model, x)
-        print(f"{impl:>10}: {counts[impl]} Triton kernel launches (one block, forward + backward)")
-    return counts
+def run_kernel_launch_sweep() -> dict:
+    """The same hidden-size sweep as latency and memory, not one isolated
+    config: a single measurement can't show whether a tie holds generally
+    or just happened to land at one convenient size, and depth is fixed at
+    1 here (rather than the 6 latency/memory use) so the count reflects one
+    block's epilogue directly, not six of them summed."""
+    results = {"inductor": [], "graphfuse": []}
+    for hidden in HIDDEN_SIZES:
+        x = torch.randn(ROWS, hidden, device="cuda")
+        for impl in ("inductor", "graphfuse"):
+            torch._dynamo.reset()
+            model = _build(impl, hidden, depth=1)
+            count = _count_triton_launches(model, x)
+            results[impl].append({"hidden": hidden, "count": count})
+            print(f"{impl:>10} hidden={hidden:<6} {count} Triton kernel launches (one block, forward + backward)")
+    return results
 
 
 def main() -> None:
@@ -155,9 +160,9 @@ def main() -> None:
     plot_latency_delta(results, ASSETS_DIR / "latency_delta.png")
     plot_memory_delta(results, ASSETS_DIR / "memory_delta.png")
 
-    counts = run_kernel_launch_comparison()
-    write_results_json(counts, ASSETS_DIR / "kernel_launch_counts.json")
-    plot_kernel_launch_counts(counts, ASSETS_DIR / "kernel_launch_counts.png")
+    launch_counts = run_kernel_launch_sweep()
+    write_results_json(launch_counts, ASSETS_DIR / "kernel_launch_counts.json")
+    plot_kernel_launch_sweep(launch_counts, ASSETS_DIR / "kernel_launch_counts.png")
 
 
 if __name__ == "__main__":

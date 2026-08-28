@@ -58,6 +58,7 @@ def _plot_relative_delta(results: dict, key: str, baseline: str, ylabel: str, ti
     # two agree."
     style_by_impl = {"eager": ("--", 9), "inductor": ("-", 6), "graphfuse": ("-", 5)}
 
+    series = {}
     for impl in _ORDER:
         if impl == baseline:
             continue
@@ -68,10 +69,50 @@ def _plot_relative_delta(results: dict, key: str, baseline: str, ylabel: str, ti
                 continue
             xs.append(hidden)
             ys.append((row[key] / baseline_by_hidden[hidden] - 1) * 100)
+        series[impl] = (xs, ys)
+
+    # A filled band between the two non-baseline curves, drawn before either
+    # line: even where they sit almost exactly on top of each other, a
+    # colored sliver of area between them still reads as "two curves paired
+    # closely," where two overlapping strokes alone would just look like one.
+    non_baseline = [impl for impl in _ORDER if impl != baseline]
+    if len(non_baseline) == 2 and all(series[impl][0] for impl in non_baseline):
+        (impl_a, impl_b) = non_baseline
+        xs_a, ys_a = series[impl_a]
+        xs_b, ys_b = series[impl_b]
+        if xs_a == xs_b:
+            ax.fill_between(xs_a, ys_a, ys_b, color="#f59e0b", alpha=0.16, zorder=2, linewidth=0)
+
+    for impl in non_baseline:
+        xs, ys = series[impl]
         linestyle, markersize = style_by_impl[impl]
         ax.plot(xs, ys, color=_COLORS[impl], linewidth=2.4, linestyle=linestyle, marker="o",
                  markersize=markersize, markerfacecolor=_COLORS[impl], markeredgecolor="white",
                  markeredgewidth=1.2, label=_LABELS[impl], zorder=3)
+
+    # When the two curves agree closely everywhere, the filled band between
+    # them above is too thin to see at all, which is itself worth calling
+    # out directly rather than leaving the reader to wonder whether the
+    # second line rendered at all: a fixed corner callout says explicitly
+    # that the closeness is the finding, not a glitch, without needing to
+    # point at any one data point that might sit anywhere in the frame.
+    if len(non_baseline) == 2:
+        impl_a, impl_b = non_baseline
+        xs_a, ys_a = series[impl_a]
+        xs_b, ys_b = series[impl_b]
+        if xs_a == xs_b and xs_a:
+            gaps = [abs(a - b) for a, b in zip(ys_a, ys_b, strict=True)]
+            if max(gaps) < 1.0:
+                # Extra headroom above the data so the callout box has clear
+                # space of its own instead of sitting on top of the curve's
+                # highest point.
+                ymin, ymax = ax.get_ylim()
+                ax.set_ylim(ymin, ymax + (ymax - ymin) * 0.22)
+                gap_desc = "identically" if max(gaps) < 0.01 else f"within {max(gaps):.2f} points"
+                ax.text(0.02, 0.97, f"{_LABELS[impl_a]} and {_LABELS[impl_b]} track {gap_desc} "
+                        "at every size measured", transform=ax.transAxes, ha="left", va="top",
+                        fontsize=9.5, color=_TEXT, zorder=6,
+                        bbox={"boxstyle": "round,pad=0.4", "fc": "white", "ec": _MUTED, "lw": 1.0})
 
     ax.axhline(0, color=_MUTED, linewidth=1.3, linestyle="--", zorder=1)
     ax.text(0.02, 0.02, f"0% = tied with {_LABELS[baseline]}", transform=ax.transAxes,
@@ -100,40 +141,56 @@ def plot_memory_delta(results: dict, path) -> None:
                           "Peak memory relative to stock Inductor, across hidden size", path)
 
 
-def plot_kernel_launch_counts(counts: dict, path) -> None:
-    """A horizontal lollipop plot, not a bar chart: one stem per compiled
-    path, a dot at the measured Triton-kernel-launch count, for one
-    forward+backward pass of a single block. Eager mode is deliberately not
-    here: it never routes through Triton at all, so a launch count of 0
+def plot_kernel_launch_sweep(results: dict, path) -> None:
+    """Kernel-launch count across the same hidden-size sweep as the latency
+    and memory charts, not one config in isolation: a single measurement at
+    one hidden size, tied 2-to-2, has nowhere to show variation at all,
+    which reads as a rendering glitch rather than a real result. Sweeping it
+    turns "is this tied" into "is this tied at every size," a claim the
+    chart can actually support or refute; here it stays exactly tied
+    everywhere measured, which is itself the finding worth showing, not an
+    artifact of picking one convenient config. Eager mode is deliberately
+    not here: it never routes through Triton at all, so a launch count of 0
     would compare a different kind of cost, not a smaller one; its story is
     in the latency and memory charts instead.
     """
     import matplotlib.pyplot as plt
 
     order = ("inductor", "graphfuse")
-    labels = [_LABELS[impl] for impl in order]
-    values = [counts[impl] for impl in order]
-    ys = list(range(len(order)))
+    style_by_impl = {"inductor": ("-", 8), "graphfuse": ("--", 9)}
 
-    fig, ax = plt.subplots(figsize=(8.5, 2.6))
+    fig, ax = plt.subplots(figsize=(9.5, 4.4))
     fig.patch.set_facecolor("white")
     ax.set_facecolor(_BAND)
 
-    for y, impl, value in zip(ys, order, values, strict=True):
-        ax.plot([0, value], [y, y], color=_COLORS[impl], linewidth=2.2, zorder=2)
-        ax.plot(value, y, "o", color=_COLORS[impl], markersize=11, zorder=3)
-        ax.text(value + max(values) * 0.02, y, str(value), va="center", color=_TEXT, fontsize=11, fontweight="bold")
+    series = {}
+    for impl in order:
+        rows = sorted(results[impl], key=lambda r: r["hidden"])
+        series[impl] = ([r["hidden"] for r in rows], [r["count"] for r in rows])
 
-    ax.set_yticks(ys)
-    ax.set_yticklabels(labels, color=_TEXT)
-    ax.set_xlim(0, max(values) * 1.25)
-    ax.set_xlabel("Triton kernel launches (one block, forward + backward)")
-    ax.set_title("How many Triton kernels the epilogue actually costs", fontsize=13, fontweight="bold", loc="left")
-    ax.grid(True, axis="x", color=_GRID, linewidth=0.7, zorder=0)
-    ax.invert_yaxis()
+    xs_a, ys_a = series["inductor"]
+    xs_b, ys_b = series["graphfuse"]
+    if xs_a == xs_b:
+        ax.fill_between(xs_a, ys_a, ys_b, color="#f59e0b", alpha=0.18, zorder=1, linewidth=0)
+
+    for impl in order:
+        xs, ys = series[impl]
+        linestyle, markersize = style_by_impl[impl]
+        ax.plot(xs, ys, color=_COLORS[impl], linewidth=2.4, linestyle=linestyle, marker="o",
+                 markersize=markersize, markerfacecolor=_COLORS[impl], markeredgecolor="white",
+                 markeredgewidth=1.2, label=_LABELS[impl], zorder=3)
+
+    all_counts = [c for _, ys in series.values() for c in ys]
+    ax.set_xscale("log", base=2)
+    ax.set_ylim(0, max(all_counts) + 1.5)
+    ax.set_yticks(range(0, max(all_counts) + 2))
+    ax.set_xlabel("hidden size")
+    ax.set_ylabel("Triton kernel launches\n(one block, forward + backward)")
+    ax.set_title("How many Triton kernels the epilogue costs, across hidden size",
+                 fontsize=13, fontweight="bold", loc="left")
+    ax.grid(True, which="both", color=_GRID, linewidth=0.7, zorder=0)
+    ax.legend(loc="center left", frameon=False, labelcolor=_TEXT)
     _style_axis(ax)
-    ax.spines["left"].set_visible(False)
-    ax.tick_params(axis="y", length=0)
 
     fig.tight_layout()
     fig.savefig(path, dpi=160, facecolor="white")
