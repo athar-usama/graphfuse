@@ -23,10 +23,10 @@ This is the literal rewrite [`pattern.py`](src/graphfuse/pattern.py) performs on
 ## What the benchmark actually found
 
 <p align="center">
-  <img src="assets/latency_vs_hidden.png" alt="Latency, forward and backward, eager vs torch.compile inductor vs torch.compile graphfuse, across hidden size">
+  <img src="assets/latency_delta.png" alt="Latency relative to stock Inductor, percent, eager vs torch.compile graphfuse, across hidden size: both roughly 30-34% behind at hidden=256, graphfuse pulling 2 to 5% ahead from hidden=1024 through 4096">
 </p>
 
-Six stacked blocks, 4,096 rows, hidden size swept from 256 to 4,096, forward+backward latency measured with CUDA events. The honest reading: at hidden=256, `graphfuse` is the slowest of the three, about 34% behind stock Inductor, because the fixed dispatch cost of crossing a custom-op boundary six times outweighs anything the fusion saves at that size. Past roughly hidden=512 the two lines swap: `graphfuse` pulls 2 to 6% ahead of stock Inductor from 1,024 through 4,096. Neither gap is dramatic, and that is the actual result, not a rounding error hidden by a log-scale y-axis.
+Six stacked blocks, 4,096 rows, hidden size swept from 256 to 4,096, forward+backward latency measured with CUDA events, plotted here as percent relative to stock Inductor rather than as three raw curves: the raw latencies sit close enough together at every hidden size that three absolute curves overlap into an unreadable tangle, while the actual story is entirely about the size of the gap, which a relative-delta chart shows directly. The honest reading: at hidden=256, `graphfuse` is the slowest of the three, about 34% behind stock Inductor, because the fixed dispatch cost of crossing a custom-op boundary six times outweighs anything the fusion saves at that size. Past roughly hidden=512 the two lines swap: `graphfuse` pulls 2 to 5% ahead of stock Inductor from 1,024 through 4,096. Neither gap is dramatic, and that is the actual result, not a rounding error hidden by a log-scale y-axis.
 
 <p align="center">
   <img src="assets/kernel_launch_counts.png" alt="Triton kernel launches for one block, forward plus backward: torch.compile inductor 2, torch.compile graphfuse 2">
@@ -35,14 +35,26 @@ Six stacked blocks, 4,096 rows, hidden size swept from 256 to 4,096, forward+bac
 Here is the more interesting number, and it is a tie. Counted by hooking the two real call sites Triton kernels launch through (below), stock Inductor's own pointwise fusion already collapses this exact epilogue's forward and backward into two kernels apiece, same as the hand-written version. Writing the kernel by hand did not buy a kernel-count win here, because Inductor's automatic fusion was already doing the right thing for a pattern this simple. What it buys instead is a kernel this project controls end to end: independently correctness-tested against a gradchecked reference, tunable without touching Inductor's heuristics, and a real template for a pattern complex enough that Inductor's generic scheduler would not fuse it as well on its own. That is a more honest description of when hand-fusing actually pays off than any single latency number.
 
 <p align="center">
-  <img src="assets/memory_vs_hidden.png" alt="Peak memory, forward and backward, eager vs torch.compile inductor vs torch.compile graphfuse, across hidden size">
+  <img src="assets/memory_delta.png" alt="Peak memory relative to stock Inductor, percent, eager vs torch.compile graphfuse, across hidden size: graphfuse and eager overlap almost exactly, 0 to 4% above Inductor, closing to roughly tied by hidden=4096">
 </p>
 
-Peak memory tells a matching story from the other side: `graphfuse` tracks eager's memory profile almost exactly, consistently 2 to 4% above Inductor's own fusion. An opaque custom op is a hard boundary for Inductor's memory planner the same way it is for its scheduler: Inductor can no longer reuse buffers *across* the region this project owns, only around it. Every number above is real, produced by [`demos/benchmark.py`](src/graphfuse/demos/benchmark.py); `assets/results.json` and `assets/kernel_launch_counts.json` have the raw sweep.
+Peak memory tells a matching story from the other side: `graphfuse` tracks eager's memory profile almost exactly, close enough that the two lines above sit on top of each other, running 3 to 4% above Inductor's own fusion through hidden=1,024 and narrowing to roughly tied by hidden=4,096. An opaque custom op is a hard boundary for Inductor's memory planner the same way it is for its scheduler:
+
+<p align="center">
+  <img src="assets/memory_boundary_diagram.svg" alt="Inductor sees through every op in the epilogue and plans one continuous reusable memory span across all of them; graphfuse's opaque custom op splits that same span into two separate ones, with no reuse across the boundary">
+</p>
+
+Inductor can no longer reuse buffers *across* the region this project owns, only around it, which is exactly what the diagram above shows: one continuous reuse span when every op is visible, two separate spans with a gap at the wall once one of them is opaque. Every number above is real, produced by [`demos/benchmark.py`](src/graphfuse/demos/benchmark.py); `assets/results.json` and `assets/kernel_launch_counts.json` have the raw sweep.
 
 ## Counting kernel launches without a GPU profiler
 
-The kernel-launch counts above did not come from `torch.profiler`. The first version of this benchmark tried exactly that, with `torch.profiler.profile(activities=[ProfilerActivity.CUDA])`, and every implementation reported zero launches. The cause: CUPTI, the NVIDIA library that GPU-side activity tracing depends on, fails to initialize under WSL2 with `CUPTI_ERROR_INVALID_DEVICE`, a real environment limitation confirmed directly, not assumed. The fix doesn't route around WSL2 at all: it counts at the actual Python call sites Triton kernel launches go through, which needs no GPU counters. `triton.runtime.jit.JITFunction.run` covers a kernel invoked directly, this project's own `_fwd_kernel`/`_bwd_kernel` included. It does not cover Inductor's *generated* kernels after their first call: Inductor wraps them in `CachingAutotuner`, which picks a best config during autotuning and then calls that config's compiled launcher directly, bypassing `JITFunction.run` entirely from the second call onward. The first version of this counter hooked only `JITFunction.run` and silently reported zero for Inductor on every run after warmup; `CachingAutotuner.run` is the second hook that actually catches it. Both hooks are plain monkeypatches around the real function, restored in a `finally` block, in [`demos/benchmark.py`](src/graphfuse/demos/benchmark.py).
+The kernel-launch counts above did not come from `torch.profiler`. The first version of this benchmark tried exactly that, with `torch.profiler.profile(activities=[ProfilerActivity.CUDA])`, and every implementation reported zero launches. The cause: CUPTI, the NVIDIA library that GPU-side activity tracing depends on, fails to initialize under WSL2 with `CUPTI_ERROR_INVALID_DEVICE`, a real environment limitation confirmed directly, not assumed. The fix doesn't route around WSL2 at all: it counts at the actual Python call sites Triton kernel launches go through, which needs no GPU counters.
+
+<p align="center">
+  <img src="assets/launch_hook_diagram.svg" alt="Two call paths funnel into one counter: a directly-invoked kernel goes through JITFunction.run, Inductor's generated kernel goes through CachingAutotuner.run from its second call onward, and both are hooked">
+</p>
+
+`triton.runtime.jit.JITFunction.run` covers a kernel invoked directly, this project's own `_fwd_kernel`/`_bwd_kernel` included. It does not cover Inductor's *generated* kernels after their first call: Inductor wraps them in `CachingAutotuner`, which picks a best config during autotuning and then calls that config's compiled launcher directly, bypassing `JITFunction.run` entirely from the second call onward. The first version of this counter hooked only `JITFunction.run` and silently reported zero for Inductor on every run after warmup; `CachingAutotuner.run` is the second hook that actually catches it. Both hooks are plain monkeypatches around the real function, restored in a `finally` block, in [`demos/benchmark.py`](src/graphfuse/demos/benchmark.py).
 
 ## Wiring a Triton kernel into torch.compile's autograd, properly
 
@@ -108,7 +120,7 @@ Any `residual + gelu(x + bias, approximate="tanh")` in the traced graph gets rew
 ## Reproducing the benchmark
 
 ```bash
-python -m graphfuse.demos.visualize_pattern  # the FX-rewrite diagram above, no GPU needed
+python -m graphfuse.demos.visualize_pattern  # the three diagrams above, no GPU needed
 python -m graphfuse.demos.benchmark          # the full hidden-size sweep and kernel-launch count, ~5 minutes
 # or, after pip install:
 graphfuse diagram
@@ -130,10 +142,10 @@ src/graphfuse/
   pattern.py      the FX matcher and rewrite
   backend.py      the actual torch.compile backend: run the rewrite, hand off to Inductor's compile_fx
   model.py        a small stack of blocks shaped so the pattern appears once per block
-  viz.py          the four charts above
+  viz.py          the charts and diagrams above
   demos/
     benchmark.py          the hidden-size sweep and the dual-hook kernel-launch counter
-    visualize_pattern.py  the FX-rewrite diagram
+    visualize_pattern.py  the FX-rewrite, launch-hook, and memory-boundary diagrams
   cli.py          `graphfuse {diagram,benchmark}`
 tests/
   test_model.py, test_reference.py     CPU-only: the demo blocks, and the gradcheck ground truth

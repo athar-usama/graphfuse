@@ -14,7 +14,7 @@ import torch
 
 from ..backend import graphfuse_backend
 from ..model import FusibleStack
-from ..viz import plot_kernel_launch_counts, plot_latency_scaling, plot_memory_scaling, write_results_json
+from ..viz import plot_kernel_launch_counts, plot_latency_delta, plot_memory_delta, write_results_json
 
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 ASSETS_DIR = ROOT / "assets"
@@ -152,8 +152,8 @@ def main() -> None:
 
     results = run_latency_memory_sweep()
     write_results_json(results, ASSETS_DIR / "results.json")
-    plot_latency_scaling(results, ASSETS_DIR / "latency_vs_hidden.png")
-    plot_memory_scaling(results, ASSETS_DIR / "memory_vs_hidden.png")
+    plot_latency_delta(results, ASSETS_DIR / "latency_delta.png")
+    plot_memory_delta(results, ASSETS_DIR / "memory_delta.png")
 
     counts = run_kernel_launch_comparison()
     write_results_json(counts, ASSETS_DIR / "kernel_launch_counts.json")

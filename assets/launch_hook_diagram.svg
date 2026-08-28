@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="871" height="230" viewBox="0 0 871 230" font-family="Consolas, Menlo, monospace">
+<rect width="871" height="230" fill="#12141a"/>
+<text x="20" y="20" font-size="14" fill="#c9ced9">Two call paths, one counter</text>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4b5563"/></marker></defs>
+<rect x="20.0" y="40.0" width="261.2" height="50.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="150.6" y="61.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">direct launch:</text>
+<text x="150.6" y="77.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">_fwd_kernel / _bwd_kernel</text>
+<path d="M281.2,65.0 C321.2,65.0 331.2,65.0 371.2,65.0" fill="none" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="371.2" y="40.0" width="220.0" height="50.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="481.2" y="69.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">JITFunction.run</text>
+<path d="M591.2,65.0 C631.2,65.0 641.2,120.0 681.2,120.0" fill="none" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="20.0" y="150.0" width="261.2" height="50.0" rx="8" fill="#1a1d27" stroke="#059669" stroke-width="1.8"/>
+<text x="150.6" y="171.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">Inductor&#x27;s generated kernel</text>
+<text x="150.6" y="187.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">(2nd call onward)</text>
+<path d="M281.2,175.0 C321.2,175.0 331.2,175.0 371.2,175.0" fill="none" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="371.2" y="150.0" width="220.0" height="50.0" rx="8" fill="#1a1d27" stroke="#059669" stroke-width="1.8"/>
+<text x="481.2" y="179.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">CachingAutotuner.run</text>
+<path d="M591.2,175.0 C631.2,175.0 641.2,120.0 681.2,120.0" fill="none" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="681.2" y="95.0" width="160.0" height="50.0" rx="8" fill="#1a1d27" stroke="#b45309" stroke-width="1.8"/>
+<text x="761.2" y="124.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">count += 1</text>
+</svg>

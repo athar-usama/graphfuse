@@ -6,9 +6,11 @@ matplotlib.use("Agg")
 
 from graphfuse.viz import (  # noqa: E402
     plot_kernel_launch_counts,
-    plot_latency_scaling,
-    plot_memory_scaling,
+    plot_latency_delta,
+    plot_memory_delta,
     render_fx_rewrite_diagram_svg,
+    render_launch_hook_diagram_svg,
+    render_memory_boundary_diagram_svg,
     write_results_json,
 )
 
@@ -30,10 +32,10 @@ def _fake_results():
     }
 
 
-def test_memory_and_latency_charts_render_without_crashing(tmp_path):
+def test_memory_and_latency_delta_charts_render_without_crashing(tmp_path):
     results = _fake_results()
-    plot_memory_scaling(results, tmp_path / "mem.png")
-    plot_latency_scaling(results, tmp_path / "lat.png")
+    plot_memory_delta(results, tmp_path / "mem.png")
+    plot_latency_delta(results, tmp_path / "lat.png")
     assert (tmp_path / "mem.png").exists()
     assert (tmp_path / "lat.png").exists()
 
@@ -46,6 +48,16 @@ def test_kernel_launch_counts_renders_without_crashing(tmp_path):
 def test_fx_rewrite_diagram_renders_without_crashing(tmp_path):
     render_fx_rewrite_diagram_svg(tmp_path / "diagram.svg")
     assert (tmp_path / "diagram.svg").exists()
+
+
+def test_launch_hook_diagram_renders_without_crashing(tmp_path):
+    render_launch_hook_diagram_svg(tmp_path / "hook.svg")
+    assert (tmp_path / "hook.svg").exists()
+
+
+def test_memory_boundary_diagram_renders_without_crashing(tmp_path):
+    render_memory_boundary_diagram_svg(tmp_path / "boundary.svg")
+    assert (tmp_path / "boundary.svg").exists()
 
 
 def test_results_json_round_trips(tmp_path):

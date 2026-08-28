@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="784" height="290" viewBox="0 0 784 290" font-family="Consolas, Menlo, monospace">
+<rect width="784" height="290" fill="#12141a"/>
+<text x="20" y="20" font-size="14" fill="#c9ced9">One reusable memory span vs. two, split at the opaque boundary</text>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4b5563"/></marker></defs>
+<text x="40" y="38.0" font-size="11.5" fill="#3b82f6">Inductor sees through every op: one continuous reuse span</text>
+<rect x="32.0" y="46.0" width="720.0" height="14" rx="7" fill="#3b82f6" fill-opacity="0.22"/>
+<rect x="40.0" y="76.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="104.0" y="102.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">prev op</text>
+<rect x="184.0" y="76.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="248.0" y="102.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">bias-add</text>
+<rect x="328.0" y="76.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="392.0" y="102.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">gelu</text>
+<rect x="472.0" y="76.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="536.0" y="102.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">residual-add</text>
+<rect x="616.0" y="76.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="680.0" y="102.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">next op</text>
+<text x="40" y="168.0" font-size="11.5" fill="#059669">graphfuse&#8217;s custom op is opaque: the span splits in two</text>
+<rect x="32.0" y="176.0" width="144.0" height="14" rx="7" fill="#059669" fill-opacity="0.22"/>
+<rect x="608.0" y="176.0" width="144.0" height="14" rx="7" fill="#059669" fill-opacity="0.22"/>
+<rect x="40.0" y="206.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="104.0" y="232.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">prev op</text>
+<rect x="184.0" y="206.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#b45309" stroke-width="1.8"/>
+<text x="248.0" y="232.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">bias-add</text>
+<rect x="328.0" y="206.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#b45309" stroke-width="1.8"/>
+<text x="392.0" y="232.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">gelu</text>
+<rect x="472.0" y="206.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#b45309" stroke-width="1.8"/>
+<text x="536.0" y="232.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">residual-add</text>
+<rect x="616.0" y="206.0" width="128.0" height="44.0" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.8"/>
+<text x="680.0" y="232.0" font-size="12.5" fill="#c9ced9" text-anchor="middle">next op</text>
+</svg>
